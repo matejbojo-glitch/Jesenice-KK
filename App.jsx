@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { NOTE_DRILLS, NOTE_SESSIONS } from "./drills-zapiski.js";
 
 const DRILLS = [
   {
@@ -83,6 +84,8 @@ const DRILLS = [
   }
 ];
 
+const ALL_DRILLS = [...DRILLS, ...NOTE_DRILLS];
+
 const TRAININGS = [
   { title: "Trening 1 (90 min)", blocks: ["10 min - Ogrevanje", "15 min - Vodenje", "15 min - Podaje", "20 min - Met in zakljucek", "10 min - Obramba", "20 min - Igra"] },
   { title: "Trening 2 (90 min)", blocks: ["10 min - Aktivacija", "15 min - Pivot", "20 min - Met po sprejemu", "10 min - Obramba 1 na 1", "15 min - Tekmovalni met", "20 min - Igra"] },
@@ -132,6 +135,7 @@ export default function App() {
   const [skill, setSkill] = useState("Vse");
   const [level, setLevel] = useState("Vse");
   const [age, setAge] = useState("Vse");
+  const [category, setCategory] = useState("Vse");
   const [month, setMonth] = useState("September 2025");
   const [monthlyAttendance, setMonthlyAttendance] = useState(() => JSON.parse(localStorage.getItem("kkj-monthly-attendance") || "{}"));
   const [generatorFocus, setGeneratorFocus] = useState("Podaje");
@@ -145,13 +149,14 @@ export default function App() {
   useEffect(() => localStorage.setItem("kkj-team", team), [team]);
   useEffect(() => localStorage.setItem("kkj-monthly-attendance", JSON.stringify(monthlyAttendance)), [monthlyAttendance]);
 
-  const filtered = useMemo(() => DRILLS.filter(d => {
-    const t = [d.title,d.purpose,d.setup,d.skill,d.category,d.age,d.level].join(" ").toLowerCase();
+  const filtered = useMemo(() => ALL_DRILLS.filter(d => {
+    const t = [d.title, d.purpose, d.setup, d.skill, d.category, d.age, d.level, d.source, d.sessionTitle, d.code, ...(d.steps || [])].join(" ").toLowerCase();
     return t.includes(query.toLowerCase()) &&
       (skill === "Vse" || d.skill === skill) &&
       (level === "Vse" || d.level === level) &&
-      (age === "Vse" || d.age === age);
-  }), [query, skill, level, age]);
+      (age === "Vse" || d.age === age) &&
+      (category === "Vse" || d.category === category);
+  }), [query, skill, level, age, category]);
 
   const currentMonth = SEASON_MONTHS.find(m => m.key === month) || SEASON_MONTHS[0];
   const trainingDays = (monthKey) => {
@@ -207,7 +212,12 @@ export default function App() {
   };
 
   const printDrills = () => {
-    openPrint(`<html><head><title>KK Jesenice - Vaje</title><style>body{font-family:Arial;padding:20px}h1{font-size:22px}.d{border-bottom:1px solid #ddd;padding:12px 0}.s{font-size:12px;color:#444}ul{padding-left:18px}</style></head><body><h1>KK Jesenice - Baza vaj</h1>${filtered.map(d=>`<div class="d"><div><strong>${d.id}. ${d.title}</strong> (${d.skill} / ${d.age})</div><div class="s"><strong>Namen:</strong> ${d.purpose}</div><div class="s"><strong>Organizacija:</strong> ${d.setup}</div><div class="s"><strong>Izvedba:</strong><ul>${d.steps.map(s=>`<li>${s}</li>`).join("")}</ul></div><div class="s"><strong>Trenerski poudarki:</strong> ${d.coach}</div><div class="s"><strong>Pogoste napake:</strong> ${d.mistakes}</div><div class="s"><strong>Variacija:</strong> ${d.variation}</div></div>`).join("")}</body></html>`);
+    openPrint(`<html><head><title>KK Jesenice - Vaje</title><style>body{font-family:Arial;padding:20px}h1{font-size:22px}.d{border-bottom:1px solid #ddd;padding:12px 0}.s{font-size:12px;color:#444}ul{padding-left:18px}</style></head><body><h1>KK Jesenice - Baza vaj</h1>${filtered.map(d=>`<div class="d"><div><strong>${d.code ? d.code + " " : ""}${d.title}</strong> (${d.skill} / ${d.age}${d.sessionTitle ? " / " + d.sessionTitle : ""})</div><div class="s"><strong>Namen:</strong> ${d.purpose}</div><div class="s"><strong>Organizacija:</strong> ${d.setup}</div><div class="s"><strong>Izvedba:</strong><ul>${d.steps.map(s=>`<li>${s}</li>`).join("")}</ul></div><div class="s"><strong>Trenerski poudarki:</strong> ${d.coach}</div><div class="s"><strong>Pogoste napake:</strong> ${d.mistakes}</div><div class="s"><strong>Variacija:</strong> ${d.variation || ""}</div>${d.source ? `<div class="s"><strong>Zapisek:</strong> ${d.source}</div>` : ""}</div>`).join("")}</body></html>`);
+  };
+
+  const printSession = (session) => {
+    const items = session.drillIds.map(id => ALL_DRILLS.find(d => d.id === id)).filter(Boolean);
+    openPrint(`<html><head><title>${session.title}</title><style>body{font-family:Arial;padding:20px}h1{font-size:22px}h2{font-size:16px;margin:18px 0 6px}.s{font-size:12px;color:#444}ul{padding-left:18px}</style></head><body><h1>${session.title}</h1><div>${session.theme}</div><div class="s">${session.context}</div><div class="s">${session.note}</div>${items.map(d => `<h2>${d.phase} · ${d.code} ${d.title}</h2><div class="s">${d.purpose}</div><div class="s"><strong>Organizacija:</strong> ${d.setup}</div><ul>${d.steps.map(s => `<li>${s}</li>`).join("")}</ul><div class="s"><strong>Poudarki:</strong> ${d.coach}</div>`).join("")}</body></html>`);
   };
 
   const exportData = () => {
@@ -261,7 +271,7 @@ export default function App() {
           <span className="badge outline">Trener: {coachName}</span>
         </div>
         <h1>🏀 KK Jesenice - trenerska app</h1>
-        <p>PRO verzija za telefon in računalnik. Treningi so 90 minut, vaje so natančno opisane, vse je pripravljeno za print ali PDF.</p>
+        <p>PRO verzija za telefon in računalnik. Treningi so 90 minut, vaje so natančno opisane, vse je pripravljeno za print ali PDF. Vaje iz rokopisnih listov so v bazi pod kategorijo Iz zapiskov in kot treningi po sklopih.</p>
         <div className="row">
           <button className="btn secondary" onClick={generatePlan}>Generiraj PRO trening</button>
           <button className="btn" onClick={printTraining}>Print trening</button>
@@ -270,7 +280,7 @@ export default function App() {
       </div>
 
       <div className="grid grid-3" style={{marginTop:16}}>
-        <div className="card"><div className="small">Vaje</div><div className="stat">{DRILLS.length}</div></div>
+        <div className="card"><div className="small">Vaje</div><div className="stat">{ALL_DRILLS.length}</div></div>
         <div className="card"><div className="small">Igre</div><div className="stat">{GAMES.length}</div></div>
         <div className="card"><div className="small">Igralci</div><div className="stat">{players.length}</div></div>
       </div>
@@ -313,26 +323,30 @@ export default function App() {
           <div className="card">
             <div className="row">
               <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Išči vajo, opis, kategorijo..." />
-              <select value={skill} onChange={e => setSkill(e.target.value)}><option>Vse</option>{[...new Set(DRILLS.map(d=>d.skill))].map(s => <option key={s}>{s}</option>)}</select>
-              <select value={level} onChange={e => setLevel(e.target.value)}><option>Vse</option>{[...new Set(DRILLS.map(d=>d.level))].map(s => <option key={s}>{s}</option>)}</select>
-              <select value={age} onChange={e => setAge(e.target.value)}><option>Vse</option>{[...new Set(DRILLS.map(d=>d.age))].map(s => <option key={s}>{s}</option>)}</select>
+              <select value={skill} onChange={e => setSkill(e.target.value)}><option>Vse</option>{[...new Set(ALL_DRILLS.map(d=>d.skill))].map(s => <option key={s}>{s}</option>)}</select>
+              <select value={level} onChange={e => setLevel(e.target.value)}><option>Vse</option>{[...new Set(ALL_DRILLS.map(d=>d.level))].map(s => <option key={s}>{s}</option>)}</select>
+              <select value={age} onChange={e => setAge(e.target.value)}><option>Vse</option>{[...new Set(ALL_DRILLS.map(d=>d.age))].map(s => <option key={s}>{s}</option>)}</select>
+              <select value={category} onChange={e => setCategory(e.target.value)}><option>Vse</option>{[...new Set(ALL_DRILLS.map(d=>d.category))].map(s => <option key={s}>{s}</option>)}</select>
             </div>
           </div>
           <div className="grid grid-3" style={{marginTop:16}}>
             {filtered.map(d => (
               <div key={d.id} className="card">
-                <div><strong>{d.id}. {d.title}</strong></div>
+                <div><strong>{d.code ? `${d.code} ` : `${d.id}. `}{d.title}</strong></div>
                 <div style={{marginTop:6}}>
                   <span className="badge">{d.skill}</span>
                   <span className="badge outline">{d.level}</span>
                   <span className="badge outline">{d.age}</span>
+                  {d.phase && <span className="badge outline">{d.phase}</span>}
                 </div>
+                {d.sessionTitle && <div className="small">{d.sessionTitle}</div>}
                 <div><strong>Namen:</strong> {d.purpose}</div>
                 <div><strong>Organizacija:</strong> {d.setup}</div>
                 <div><strong>Izvedba:</strong><ol>{d.steps.map((s,i)=><li key={i}>{s}</li>)}</ol></div>
                 <div><strong>Trenerski poudarki:</strong> {d.coach}</div>
                 <div><strong>Pogoste napake:</strong> {d.mistakes}</div>
-                <div><strong>Variacija:</strong> {d.variation}</div>
+                {d.variation && <div><strong>Variacija:</strong> {d.variation}</div>}
+                {d.source && <div className="small">Zapisek: {d.source}</div>}
                 <button className="btn secondary" style={{marginTop:10}} onClick={() => setSaved(prev => prev.includes(d.id) ? prev.filter(x => x !== d.id) : [...prev, d.id])}>
                   {saved.includes(d.id) ? "Shranjena vaja" : "Shrani vajo"}
                 </button>
@@ -343,8 +357,40 @@ export default function App() {
       )}
 
       {tab === "treningi" && (
-        <div className="grid grid-3">
-          {TRAININGS.map((t, i) => <div key={i} className="card"><strong>{t.title}</strong>{t.blocks.map((b,j)=><div key={j} style={{marginTop:8}}>{j+1}. {b}</div>)}</div>)}
+        <div>
+          <div className="grid grid-3">
+            {TRAININGS.map((t, i) => <div key={i} className="card"><strong>{t.title}</strong>{t.blocks.map((b,j)=><div key={j} style={{marginTop:8}}>{j+1}. {b}</div>)}</div>)}
+          </div>
+          <div className="card" style={{marginTop:16}}>
+            <h3>Treningi iz zapiskov</h3>
+            <p className="small">Vsak sklop je prepis enega lista. Korak z (?) na originalu ni zanesljivo berljiv.</p>
+          </div>
+          {NOTE_SESSIONS.map(session => {
+            const items = session.drillIds.map(id => ALL_DRILLS.find(d => d.id === id)).filter(Boolean);
+            return (
+              <div key={session.id} className="card" style={{marginTop:16}}>
+                <div className="row" style={{justifyContent:"space-between"}}>
+                  <strong>{session.title}</strong>
+                  <button className="btn secondary" onClick={() => printSession(session)}>Print trening</button>
+                </div>
+                <div>{session.theme}</div>
+                <div className="small">{session.context} · {session.form}</div>
+                <div className="small">{session.note}</div>
+                {items.map(d => (
+                  <div key={d.id} style={{marginTop:12}}>
+                    <div className="row" style={{justifyContent:"space-between"}}>
+                      <strong>{d.phase} · {d.code} {d.title}</strong>
+                      <span className="badge outline">{d.skill}</span>
+                    </div>
+                    <div className="small">{d.purpose}</div>
+                    <div><strong>Organizacija:</strong> {d.setup}</div>
+                    <ol>{d.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
+                    <div className="small">{d.coach}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -434,4 +480,12 @@ export default function App() {
       )}
     </div>
   );
+}
+
+function Input(props) {
+  return <input {...props} />;
+}
+
+function Textarea(props) {
+  return <textarea {...props} />;
 }
